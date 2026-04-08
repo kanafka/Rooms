@@ -1,0 +1,911 @@
+basePath: /
+definitions:
+  room-booking_internal_domain.Booking:
+    properties:
+      conferenceLink:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      slotId:
+        type: string
+      status:
+        $ref: '#/definitions/room-booking_internal_domain.BookingStatus'
+      userId:
+        type: string
+    type: object
+  room-booking_internal_domain.BookingStatus:
+    enum:
+    - active
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - BookingStatusActive
+    - BookingStatusCancelled
+  room-booking_internal_domain.Pagination:
+    properties:
+      page:
+        type: integer
+      pageSize:
+        type: integer
+      total:
+        type: integer
+    type: object
+  room-booking_internal_domain.Role:
+    enum:
+    - admin
+    - user
+    type: string
+    x-enum-varnames:
+    - RoleAdmin
+    - RoleUser
+  room-booking_internal_domain.Room:
+    properties:
+      capacity:
+        type: integer
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  room-booking_internal_domain.Schedule:
+    properties:
+      daysOfWeek:
+        items:
+          type: integer
+        type: array
+      endTime:
+        type: string
+      id:
+        type: string
+      roomId:
+        type: string
+      startTime:
+        type: string
+    type: object
+  room-booking_internal_domain.Slot:
+    properties:
+      end:
+        type: string
+      id:
+        type: string
+      roomId:
+        type: string
+      start:
+        type: string
+    type: object
+  room-booking_internal_domain.User:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      role:
+        $ref: '#/definitions/room-booking_internal_domain.Role'
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Сервис бронирования переговорок. Для авторизации используйте /dummyLogin,
+    скопируйте токен и вставьте в поле Authorize.
+  title: Room Booking Service
+  version: "1.0"
+paths:
+  /_info:
+    get:
+      description: Всегда возвращает 200 OK.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              status:
+                type: string
+            type: object
+      summary: Health check
+      tags:
+      - System
+  /bookings/{bookingId}/cancel:
+    post:
+      description: Идемпотентно отменяет бронь. Только user, только свою бронь.
+      parameters:
+      - description: ID брони
+        format: uuid
+        in: path
+        name: bookingId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              booking:
+                $ref: '#/definitions/room-booking_internal_domain.Booking'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Отменить бронь
+      tags:
+      - Bookings
+  /bookings/create:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт бронь. Только user. userId берётся из JWT.
+      parameters:
+      - description: Данные брони
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            createConferenceLink:
+              type: boolean
+            slotId:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              booking:
+                $ref: '#/definitions/room-booking_internal_domain.Booking'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать бронь на слот
+      tags:
+      - Bookings
+  /bookings/list:
+    get:
+      description: Возвращает все брони. Только admin.
+      parameters:
+      - description: Номер страницы (по умолчанию 1)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - description: Размер страницы (по умолчанию 20, макс 100)
+        in: query
+        maximum: 100
+        minimum: 1
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              bookings:
+                items:
+                  $ref: '#/definitions/room-booking_internal_domain.Booking'
+                type: array
+              pagination:
+                $ref: '#/definitions/room-booking_internal_domain.Pagination'
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список всех броней с пагинацией
+      tags:
+      - Bookings
+  /bookings/my:
+    get:
+      description: Возвращает только будущие брони пользователя из JWT. Только user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              bookings:
+                items:
+                  $ref: '#/definitions/room-booking_internal_domain.Booking'
+                type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список броней текущего пользователя
+      tags:
+      - Bookings
+  /dummyLogin:
+    post:
+      consumes:
+      - application/json
+      description: Выдаёт тестовый JWT для роли admin или user. Фиксированный UUID
+        для каждой роли.
+      parameters:
+      - description: Роль (admin или user)
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            role:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              token:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      summary: Получить тестовый JWT по роли
+      tags:
+      - Auth
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Авторизует пользователя, возвращает JWT.
+      parameters:
+      - description: Учётные данные
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              token:
+                type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      summary: Авторизация по email и паролю (дополнительное задание)
+      tags:
+      - Auth
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт нового пользователя с email, паролем и ролью.
+      parameters:
+      - description: Данные пользователя
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+            password:
+              type: string
+            role:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              user:
+                $ref: '#/definitions/room-booking_internal_domain.User'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      summary: Регистрация пользователя (дополнительное задание)
+      tags:
+      - Auth
+  /rooms/{roomId}/schedule/create:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт расписание. Только admin. Можно создать только один раз.
+      parameters:
+      - description: ID переговорки
+        format: uuid
+        in: path
+        name: roomId
+        required: true
+        type: string
+      - description: Расписание
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            daysOfWeek:
+              items:
+                type: integer
+              type: array
+            endTime:
+              type: string
+            startTime:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              schedule:
+                $ref: '#/definitions/room-booking_internal_domain.Schedule'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать расписание переговорки
+      tags:
+      - Schedules
+  /rooms/{roomId}/slots/list:
+    get:
+      description: Возвращает незанятые слоты на указанную дату. Наиболее нагруженный
+        эндпоинт.
+      parameters:
+      - description: ID переговорки
+        format: uuid
+        in: path
+        name: roomId
+        required: true
+        type: string
+      - description: Дата в формате YYYY-MM-DD
+        format: date
+        in: query
+        name: date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              slots:
+                items:
+                  $ref: '#/definitions/room-booking_internal_domain.Slot'
+                type: array
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список доступных слотов по переговорке и дате
+      tags:
+      - Slots
+  /rooms/create:
+    post:
+      consumes:
+      - application/json
+      description: Создаёт переговорку. Только admin.
+      parameters:
+      - description: Данные переговорки
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            capacity:
+              type: integer
+            description:
+              type: string
+            name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            properties:
+              room:
+                $ref: '#/definitions/room-booking_internal_domain.Room'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Создать переговорку
+      tags:
+      - Rooms
+  /rooms/list:
+    get:
+      description: Возвращает все переговорки. Доступно admin и user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              rooms:
+                items:
+                  $ref: '#/definitions/room-booking_internal_domain.Room'
+                type: array
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            properties:
+              error:
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                type: object
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Список переговорок
+      tags:
+      - Rooms
+securityDefinitions:
+  BearerAuth:
+    description: 'Введите токен в формате: Bearer {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
